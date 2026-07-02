@@ -22,13 +22,17 @@ pipeline {
 
         stage('Install dependencies') {
             steps {
-                sh 'npm ci'
+                retry(3) {
+                    sh 'npm ci'
+                }
             }
         }
 
         stage('Unit tests') {
             steps {
-                sh 'npm run test:coverage -- --outputFile.junit=reports/junit.xml'
+                retry(3) {
+                    sh 'npm run test:coverage -- --outputFile.junit=reports/junit.xml'
+                }
             }
             post {
                 always {
@@ -39,13 +43,15 @@ pipeline {
 
         stage('SonarQube analysis') {
             steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh """
-                        npx sonarqube-scanner \
-                        -Dsonar.host.url=\$SONAR_HOST_URL \
-                        -Dsonar.login=\$SONAR_TOKEN \
-                        -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-                    """
+                retry(3) {
+                    withSonarQubeEnv('SonarQube') {
+                        sh """
+                            npx sonarqube-scanner \
+                            -Dsonar.host.url=\$SONAR_HOST_URL \
+                            -Dsonar.login=\$SONAR_TOKEN \
+                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+                        """
+                    }
                 }
             }
         }
@@ -106,32 +112,38 @@ pipeline {
 
         stage('Build frontend') {
             steps {
-                sh 'npm run build'
+                retry(3) {
+                    sh 'npm run build'
+                }
             }
         }
 
         stage('Docker build') {
             steps {
-                sh 'docker build -t $DOCKER_IMAGE:$IMAGE_TAG -t $DOCKER_IMAGE:latest .'
+                retry(3) {
+                    sh 'docker build -t $DOCKER_IMAGE:$IMAGE_TAG -t $DOCKER_IMAGE:latest .'
+                }
             }
         }
 
         stage('Trivy scan') {
             steps {
-                sh '''mkdir trivy-reports'''
-                sh '''
-                    trivy image \
-                        --severity HIGH,CRITICAL \
-                        --format table \
-                        --output trivy-reports/trivy-report.txt \
-                        $DOCKER_IMAGE:$IMAGE_TAG || true
+                retry(3) {
+                    sh '''mkdir trivy-reports'''
+                    sh '''
+                        trivy image \
+                            --severity HIGH,CRITICAL \
+                            --format table \
+                            --output trivy-reports/trivy-report.txt \
+                            $DOCKER_IMAGE:$IMAGE_TAG || true
 
-                    trivy image \
-                        --severity HIGH,CRITICAL \
-                        --format json \
-                        --output trivy-reports/trivy-report.json \
-                        $DOCKER_IMAGE:$IMAGE_TAG || true
-                '''
+                        trivy image \
+                            --severity HIGH,CRITICAL \
+                            --format json \
+                            --output trivy-reports/trivy-report.json \
+                            $DOCKER_IMAGE:$IMAGE_TAG || true
+                    '''
+                }
             }
             post {
                 always {
@@ -142,7 +154,9 @@ pipeline {
 
         stage('Generate SBOM') {
             steps {
-                sh 'trivy image --format cyclonedx -o sbom.json $DOCKER_IMAGE:$IMAGE_TAG'
+                retry(3) {
+                    sh 'trivy image --format cyclonedx -o sbom.json $DOCKER_IMAGE:$IMAGE_TAG'
+                }
             }
             post {
                 always {
@@ -153,9 +167,11 @@ pipeline {
 
         stage('Docker push') {
             steps {
-                sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
-                sh 'docker push $DOCKER_IMAGE:$IMAGE_TAG'
-                sh 'docker push $DOCKER_IMAGE:latest'
+                retry(3) {
+                    sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+                    sh 'docker push $DOCKER_IMAGE:$IMAGE_TAG'
+                    sh 'docker push $DOCKER_IMAGE:latest'
+                }
             }
         }
     }
