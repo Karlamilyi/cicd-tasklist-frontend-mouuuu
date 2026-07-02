@@ -118,23 +118,24 @@ pipeline {
 
         stage('Trivy scan') {
             steps {
+                sh '''mkdir trivy-reports'''
                 sh '''
                     trivy image \
                         --severity HIGH,CRITICAL \
                         --format table \
-                        --output trivy-report.txt \
+                        --output trivy-reports/trivy-report.txt \
                         $DOCKER_IMAGE:$IMAGE_TAG || true
 
                     trivy image \
                         --severity HIGH,CRITICAL \
                         --format json \
-                        --output trivy-report.json \
+                        --output trivy-reports/trivy-report.json \
                         $DOCKER_IMAGE:$IMAGE_TAG || true
                 '''
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'trivy-report.*', fingerprint: true
+                    archiveArtifacts artifacts: 'trivy-reports/trivy-report.*', fingerprint: true
                 }
             }
         }
