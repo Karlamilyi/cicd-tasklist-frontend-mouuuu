@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  frontend:
+    build: .
+    image: cicd-tasklist-frontend:latest
+    ports:
+      - "3000:80"
+    environment:
+      # Allow overriding the API base URL at runtime (example: http://api:8080)
+      - VITE_API_URL=${VITE_API_URL:-/api}
+    restart: unless-stopped
+
+  # Development helper (optional, only when using the 'dev' profile):
+  frontend-dev:
+    image: node:20
+    working_dir: /app
+    volumes:
+      - ./:/app:cached
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install --silent && npm run dev -- --host 0.0.0.0"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    profiles:
+      - dev

@@ -1,0 +1,16 @@
+.dockerignore
+node_modules
+.env
+.env.*
+coverage
+reports
+.git
+.gitignore
+npm-debug.log
+yarn-error.log
+.DS_Store
+.idea
+.vscode
+coverage/
+lcov.info
+public/locales
